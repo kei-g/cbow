@@ -1,0 +1,11 @@
+{
+  "cSpell.allowCompoundWords": true,
+  "cSpell.caseSensitive": false,
+  "cSpell.userWords": [
+    "bigl",
+    "bigr",
+    "mathbb",
+    "mathrm",
+    "pmatrix",
+  ],
+}
