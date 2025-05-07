@@ -8,16 +8,14 @@
 #include "cbow/trainer.hh"
 
 struct text_reader {
-  friend void operator>>(std::istream &source, text_reader &tr);
-
 private:
   std::deque<std::string> m_corpus;
+  std::size_t m_count;
+  std::deque<std::size_t> m_current_indices;
   std::deque<std::size_t> m_frequency;
-  std::deque<std::size_t> m_indices;
+  std::deque<std::deque<std::size_t>> m_indices;
   const cbow::options &m_options;
   std::unordered_map<std::string, std::size_t> m_reverse_lookup_table;
-
-  void operator<<(const std::string &word);
 
   void accept(const std::string &word);
 
@@ -48,6 +46,11 @@ public:
    * Describe corpus and words.
    */
   void describe_to(std::ostream &dest) const;
+
+  /**
+   * Load from file descriptor.
+   */
+  void load(int fd);
 
   /**
    * Creates a CBoW model and trainer.

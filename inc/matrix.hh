@@ -105,7 +105,7 @@ public:
     }
   }
 
-  void update(auto eta, const auto &hadamard, const auto &indices, const auto pos, const auto width) {
+  void update(auto eta, const auto &hadamard, const auto pos, const auto &visit, const auto width) {
     const auto coeff = eta / (width * 2);
     for (auto i = 0zu, offset = 0zu; i < rows; i++, offset += columns) {
       const auto value = coeff * hadamard.at(i);
@@ -117,11 +117,7 @@ public:
       for (auto j = pos + 1; j <= pos + width; j++)
         row[indices.at(j)] -= value;
 #else  /* USE_SPAN */
-      for (auto j = pos - width; j + 1 < pos; j++)
-        elements[offset + indices.at(j)] -= value;
-      elements[offset + indices.at(pos)] -= value;
-      for (auto j = pos + 1; j <= pos + width; j++)
-        elements[offset + indices.at(j)] -= value;
+      visit(pos, [this, offset, value](const auto i) { elements[offset + i] -= value; });
 #endif /* USE_SPAN */
     }
   }

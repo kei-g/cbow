@@ -13,7 +13,7 @@ namespace cbow {
 
   void describer::describe_to(std::ostream &dest) const {
     dest << '{' << std::endl;
-    for (auto i = 0zu; i < m_corpus.size(); i++) {
+    for (auto i = 2zu; i < m_corpus.size(); i++) {
       const auto row = m_mat->row(i);
       const auto &word = m_corpus.at(i);
       dest << std::format("  {:?}: [", word) << std::endl;

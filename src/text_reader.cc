@@ -13,10 +13,10 @@ template <typename T>
 concept HasSize = requires(const T &target) { target.size(); };
 
 /**
- * Zip elements in `arg2` and `arg1` to vector, and return the largest size of element in `arg1`
+ * Zip elements in `arg2` and `arg1` to the specified container, and return the largest size of element in `arg1`
  */
 template <HasSize T, typename U>
-static size_t zip_to(vector<pair<U, T>> *dest, const deque<T> &arg1, const deque<U> &arg2) {
+static size_t zip_to(deque<pair<U, T>> *dest, const deque<T> &arg1, const deque<U> &arg2) {
   auto largest = numeric_limits<size_t>::min();
   for (auto i = 0zu; i < arg1.size(); i++) {
     const auto &elem = arg1.at(i);
@@ -28,43 +28,15 @@ static size_t zip_to(vector<pair<U, T>> *dest, const deque<T> &arg1, const deque
   return largest;
 }
 
-void operator>>(istream &source, text_reader &tr) {
-  auto text = string();
-  for (;;) {
-    auto word = string();
-    source >> word;
-    if (word.empty())
-      break;
-    word = regex_replace(word, regex("(\u2013|\u2014|\u2212|\xc2\xad)"), "-");
-    text += word;
-    if (!word.ends_with('-'))
-      text.push_back(' ');
-  }
-  text = regex_replace(text, regex("(\u3000|\xe2\x80\x8a)"), " ");
-  auto re = regex(R"(-{2,}|\xc2\xb0|\u2019|\u201c|\u201d|[0-9]+\.[0-9]+|[0-9]+(?:,[0-9]+)*|[^0-9A-Za-z])");
-  text = regex_replace(text, re, " $& ");
-  tr << text;
-}
-
 text_reader::text_reader(const cbow::options &options)
-  : m_options(options) {
-}
-
-void text_reader::operator<<(const string &text) {
-  auto source = stringstream(text);
-  for (;;) {
-    auto word = string();
-    source >> word;
-    if (word.empty())
-      break;
-    if (m_options.case_sensitive)
-      accept(word);
-    else {
-      auto lc = string();
-      transform(word.cbegin(), word.cend(), back_inserter(lc), [](const auto c) { return tolower(c); });
-      accept(lc);
-    }
-  }
+  : m_count(0zu)
+  , m_options(options) {
+  m_corpus.push_back("<|beginoftext|>");
+  m_corpus.push_back("<|endoftext|>");
+  m_frequency.push_back(0zu);
+  m_frequency.push_back(0zu);
+  m_reverse_lookup_table.insert(make_pair("<|beginoftext|>", 0zu));
+  m_reverse_lookup_table.insert(make_pair("<|endoftext|>", 1zu));
 }
 
 void text_reader::accept(const string &word) {
@@ -78,8 +50,15 @@ void text_reader::accept(const string &word) {
 void text_reader::append(const size_t index) {
   if (1 < m_options.verbosity)
     cerr << format("\x1b[35m{}\x1b[m = {}", m_corpus.at(index), index) << endl;
-  m_frequency[index]++;
-  m_indices.push_back(index);
+  if (index < 2zu) {
+    m_indices.push_back(std::move(m_current_indices));
+    m_current_indices = std::deque<std::size_t>();
+  }
+  else {
+    m_count++;
+    m_frequency[index]++;
+    m_current_indices.push_back(index);
+  }
 }
 
 void text_reader::append(const string &word) {
@@ -87,14 +66,19 @@ void text_reader::append(const string &word) {
   if (1 < m_options.verbosity)
     cerr << format("\x1b[32m{}\x1b[m = {}", word, index) << endl;
   m_corpus.push_back(word);
-  m_frequency.push_back(1);
-  m_indices.push_back(index);
+  m_count++;
+  m_current_indices.push_back(index);
+  m_frequency.push_back(1zu);
   m_reverse_lookup_table.insert(make_pair(word, index));
 }
 
 void text_reader::describe_frequency_of_words_to(ostream &dest) const {
-  auto corpus = vector<pair<size_t, string>>();
+  auto corpus = deque<pair<size_t, string>>();
   const auto longest = zip_to(&corpus, m_corpus, m_frequency);
+
+  // remove <|beginoftext|> <|endoftext|>
+  corpus.pop_front();
+  corpus.pop_front();
 
   // header line
   dest << format("{0:{1}} 頻度 割合", "単語", longest) << endl;
@@ -102,15 +86,15 @@ void text_reader::describe_frequency_of_words_to(ostream &dest) const {
   // sort corpus by frequency in descending order
   sort(corpus.begin(), corpus.end(), [](const auto &lhs, const auto &rhs) { return rhs.first < lhs.first; });
 
-  // the average of frequency depends on the ratio of `m_indices.size()` and `corpus.size()`
-  const auto average = static_cast<double>(m_indices.size()) / corpus.size();
+  // the average of frequency depends on the ratio of word count and corpus size
+  const auto average = static_cast<double>(m_count) / corpus.size();
 
   // the variance of frequency, be accumulated during iteration of words in corpus, and be divided by its size finally
   auto variance = static_cast<double>(0);
 
   // show frequency of words, accumulate squares of difference from average simultaneously
   for (const auto &[freq, word] : corpus) {
-    const auto percent = static_cast<float>(freq) * 100 / m_indices.size();
+    const auto percent = static_cast<float>(freq) * 100 / m_count;
     dest << format("{0:{1}} {2:>4} {3}%", word, longest, freq, percent) << endl;
     const auto difference = freq - average;
     variance += difference * difference;
@@ -133,7 +117,7 @@ void text_reader::describe_to(ostream &dest) const {
     describe_frequency_of_words_to(dest);
 
   if (0 < o.verbosity) {
-    dest << format("総単語数: {}語, 語彙: {}語", m_indices.size(), m_corpus.size()) << endl;
+    dest << format("総単語数: {}語, 語彙: {}語", m_count, m_corpus.size() - 1) << endl;
     dest << format("周囲{}単語を用いて{}次元のベクトルへ変換します", o.width, o.dimensions) << endl;
   }
 }
@@ -146,4 +130,23 @@ cbow::trainer text_reader::populate(cbow::model *model, std::mt19937_64 &engine)
   model->in_matrix = std::make_unique<cbow::matrix_type>(V, H, engine);
   model->out_matrix = std::make_unique<cbow::matrix_type>(H, V, engine);
   return cbow::trainer(m_indices, m_options);
+}
+
+#include "tokenizer.hh"
+#include "utf8.hh"
+
+void text_reader::load(int fd) {
+  auto file = file_descriptor(fd);
+  auto reader = utf8::reader();
+  auto receiver = [this](const string &word) {
+    if (m_options.case_sensitive)
+      accept(word);
+    else {
+      auto lower = string();
+      transform(word.begin(), word.end(), back_inserter(lower), [](const auto c) { return std::tolower(c); });
+      accept(lower);
+    }
+  };
+  auto tok = tokenizer(receiver);
+  file.visit(reader, tok);
 }

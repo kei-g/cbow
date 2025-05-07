@@ -1,12 +1,16 @@
 #pragma once
 
 #include <cstddef>
+#include <deque>
 #include <memory>
 #include <vector>
 
 #include "matrix.hh"
 
 namespace cbow {
+  typedef std::deque<std::size_t> indices_type;
+  typedef const indices_type &const_indices_ref;
+
   typedef double element_type;
   typedef ::matrix<element_type> matrix_type;
   typedef matrix_type &matrix_ref;

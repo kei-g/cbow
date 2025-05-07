@@ -34,7 +34,8 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-#include <fstream>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "text_reader.hh"
 
@@ -43,11 +44,13 @@ static cbow::trainer load(int argc, char *argv[], std::mt19937_64 &engine, cbow:
   auto tr = ::text_reader(opts);
   extern int optind;
   if (optind < argc) {
-    auto source = std::ifstream(argv[optind], std::ios_base::in);
-    source >> tr;
+    auto fd = open(argv[optind], O_RDONLY);
+    if (fd < 0)
+      throw;
+    tr.load(fd);
   }
   else
-    std::cin >> tr;
+    tr.load(0);
 
   // describe corpus and words if necessary
   tr.describe_to(std::cerr);
