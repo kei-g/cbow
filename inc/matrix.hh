@@ -86,6 +86,16 @@ public:
     dest = std::make_unique<matrix<T>>(columns, rows, elements);
   }
 
+  auto hadamard(const std::vector<T> &vec) const {
+    auto result = std::vector<T>(columns);
+    for (auto c = 0zu, i = 0zu; i < rows; i++) {
+      const auto value = vec.at(i);
+      for (auto j = 0zu; j < columns; j++)
+        result[j] += elements[c++] * value;
+    }
+    return result;
+  }
+
   auto row(const auto row) const {
     if (row < 0 || rows <= row)
       throw;

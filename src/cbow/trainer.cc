@@ -112,7 +112,7 @@ namespace cbow {
         loss += cross_entropy_loss;
 
         // update matrices
-        auto hadamard = *model.out_matrix->transpose() * inference->probability;
+        auto hadamard = model.out_matrix->hadamard(inference->probability);
         model.in_matrix->update(m_eta, hadamard, pos, visit, m_width);
         model.out_matrix->update(m_eta, *inference);
       }
