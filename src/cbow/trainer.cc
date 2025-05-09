@@ -99,7 +99,7 @@ namespace cbow {
         auto inference = infer(pos, model, skip);
 
         // remember the probability in order to explain them later if necessary
-        if (2 < m_verbosity)
+        if (m_verbosity & 16)
           inferences[pos] = inference->probability;
 
         // calculate cross entropy loss and update probability
@@ -118,7 +118,7 @@ namespace cbow {
       }
 
       // explain if necessary
-      if (2 < m_verbosity) {
+      if (m_verbosity & 16) {
 #if 0 // change to 1 if you don't mind the order of inference
         for (const auto [pos, prob] : inferences) {
           auto args = explain_args{

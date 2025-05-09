@@ -48,7 +48,7 @@ void text_reader::accept(const string &word) {
 }
 
 void text_reader::append(const size_t index) {
-  if (1 < m_options.verbosity)
+  if (m_options.verbosity & 4)
     cerr << format("\x1b[35m{}\x1b[m = {}", m_corpus.at(index), index) << endl;
   if (index < 2zu) {
     m_indices.push_back(std::move(m_current_indices));
@@ -63,7 +63,7 @@ void text_reader::append(const size_t index) {
 
 void text_reader::append(const string &word) {
   const auto index = m_reverse_lookup_table.size();
-  if (1 < m_options.verbosity)
+  if (m_options.verbosity & 8)
     cerr << format("\x1b[32m{}\x1b[m = {}", word, index) << endl;
   m_corpus.push_back(word);
   m_count++;
@@ -113,10 +113,10 @@ void text_reader::describe_frequency_of_words_to(ostream &dest) const {
 void text_reader::describe_to(ostream &dest) const {
   const auto &o = m_options;
 
-  if (1 < o.verbosity)
+  if (o.verbosity & 2)
     describe_frequency_of_words_to(dest);
 
-  if (0 < o.verbosity) {
+  if (o.verbosity & 1) {
     dest << format("総単語数: {}語, 語彙: {}語", m_count, m_corpus.size() - 1) << endl;
     dest << format("周囲{}単語を用いて{}次元のベクトルへ変換します", o.width, o.dimensions) << endl;
   }
