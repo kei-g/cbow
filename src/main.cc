@@ -10,19 +10,30 @@ int main(int argc, char *argv[]) {
   auto engine = std::mt19937_64(dev());
   cbow::model model;
   auto trainer = load(argc, argv, engine, &model);
+  if (trainer.doesDrawHistogram())
+    for (auto i = 0; i < 4; i++)
+      std::cerr << std::endl;
 
   cbow::matrix_pointer best_mat;
   auto best_epoch = 0zu;
   auto best_loss = std::numeric_limits<long double>::infinity();
   for (auto epoch = 0zu;; epoch++) {
     const auto loss = trainer.train(epoch, model, engine);
-    std::cerr << std::format("[{}] 損失: {}", epoch, loss) << std::endl;
-    if (loss <= best_loss) {
+    if (trainer.doesDrawHistogram()) {
+      std::cerr << "\x1b[4A";
+      std::cerr << loss.hist << std::endl;
+    }
+    std::cerr << std::format("[{}] 損失: ", epoch);
+    std::cerr << '{';
+    std::cerr << std::format("平均: {:.4f}, 最小: {:.4f}, 最大: {:.4f}, ", loss.average, loss.min, loss.max);
+    std::cerr << std::format("標準偏差: {:.4f}", std::sqrt(loss.variance));
+    std::cerr << '}' << std::endl;
+    if (loss.average <= best_loss) {
       best_epoch = epoch;
-      best_loss = loss;
+      best_loss = loss.average;
       model.in_matrix->copy_to(best_mat);
     }
-    else if (best_loss + 1 < loss) {
+    else if (best_loss + static_cast<long double>(1) / 128 < loss.average) {
       std::cerr << std::format("[{}] 損失: {}", best_epoch, best_loss) << std::endl;
       break;
     }

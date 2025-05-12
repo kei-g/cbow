@@ -19,6 +19,7 @@
     "pthread",
     "relro",
     "rtlib",
+    "sixel",
     "stdafx",
     "wextra",
   ],

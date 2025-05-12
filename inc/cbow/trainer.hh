@@ -6,6 +6,7 @@ struct text_reader;
 
 #include "cbow.hh"
 #include "cbow/describer.hh"
+#include "cbow/loss.hh"
 #include "cbow/model.hh"
 #include "cbow/options.hh"
 #include "cbow/visitor.hh"
@@ -44,9 +45,11 @@ namespace cbow {
     trainer(const trainer &) = delete;
     trainer(trainer &&) = delete;
 
+    bool doesDrawHistogram() const;
+
     /**
      * Train
      */
-    long double train(std::size_t epoch, const model &model, std::mt19937_64 &engine) const;
+    loss_statistics train(std::size_t epoch, const model &model, std::mt19937_64 &engine) const;
   };
 }

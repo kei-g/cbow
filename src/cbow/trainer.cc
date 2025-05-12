@@ -4,6 +4,7 @@
 #include <iostream>
 #include <unordered_map>
 
+#include "cbow/loss.hh"
 #include "cbow/visitor.hh"
 #include "softmax.hh"
 #include "topmost.hh"
@@ -15,6 +16,10 @@ namespace cbow {
     , m_indices(std::move_iterator(indices.begin()), std::move_iterator(indices.end()))
     , m_verbosity(options.verbosity)
     , m_width(options.width) {
+  }
+
+  bool trainer::doesDrawHistogram() const {
+    return m_verbosity & 32;
   }
 
   void trainer::explain(const explain_args &args) const {
@@ -76,12 +81,12 @@ namespace cbow {
     return std::make_unique<inference_type>(std::move(hidden), std::move(probability));
   }
 
-  long double trainer::train(std::size_t epoch, const model &model, std::mt19937_64 &engine) const {
+  loss_statistics trainer::train(std::size_t epoch, const model &model, std::mt19937_64 &engine) const {
     auto temp = std::vector<std::size_t>(m_indices.size());
     for (auto i = 0zu; i < m_indices.size(); i++)
       temp[i] = i;
     std::shuffle(temp.begin(), temp.end(), engine);
-    auto loss = static_cast<long double>(0);
+    auto loss = loss_context(m_verbosity);
     for (const auto i : temp) {
       const auto &indices = m_indices.at(i);
       auto inferences = std::unordered_map<std::size_t, vector_type>();
@@ -109,7 +114,7 @@ namespace cbow {
 
         // accumulate loss
         losses[pos] = cross_entropy_loss;
-        loss += cross_entropy_loss;
+        loss.add(cross_entropy_loss);
 
         // update matrices
         auto hadamard = model.out_matrix->hadamard(inference->probability);
@@ -148,7 +153,6 @@ namespace cbow {
 #endif
       }
     }
-
-    return loss;
+    return loss.statistics();
   }
 }
