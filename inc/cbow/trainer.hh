@@ -10,6 +10,7 @@ struct text_reader;
 #include "cbow/model.hh"
 #include "cbow/options.hh"
 #include "cbow/visitor.hh"
+#include "signal.hh"
 
 namespace cbow {
   struct trainer {
@@ -50,6 +51,6 @@ namespace cbow {
     /**
      * Train
      */
-    loss_statistics train(std::size_t epoch, const model &model, std::mt19937_64 &engine) const;
+    loss_statistics train(std::size_t epoch, const model &model, std::mt19937_64 &engine, signal &context) const;
   };
 }

@@ -17,8 +17,9 @@ int main(int argc, char *argv[]) {
   cbow::matrix_pointer best_mat;
   auto best_epoch = 0zu;
   auto best_loss = std::numeric_limits<long double>::infinity();
-  for (auto epoch = 0zu;; epoch++) {
-    const auto loss = trainer.train(epoch, model, engine);
+  auto context = signal();
+  for (auto epoch = 0zu; !context.interrupted(); epoch++) {
+    const auto loss = trainer.train(epoch, model, engine, context);
     if (trainer.doesDrawHistogram()) {
       std::cerr << "\x1b[4A";
       std::cerr << loss.hist << std::endl;
