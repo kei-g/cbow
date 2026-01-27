@@ -111,7 +111,7 @@ namespace cbow {
 
         // remember the probability in order to explain them later if necessary
         if (m_verbosity & 16)
-          inferences[pos] = inference->probability;
+          inferences.emplace(pos, inference->probability);
 
         // calculate cross entropy loss and update probability
         auto &prob = inference->probability[index];
@@ -119,7 +119,7 @@ namespace cbow {
         prob -= 1;
 
         // accumulate loss
-        losses[pos] = cross_entropy_loss;
+        losses.emplace(pos, cross_entropy_loss);
         loss.add(cross_entropy_loss);
 
         // update matrices
