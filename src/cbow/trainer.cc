@@ -82,25 +82,25 @@ namespace cbow {
   }
 
   loss_statistics trainer::train(std::size_t epoch, const model &model, std::mt19937_64 &engine, signal &ctx) const {
-    auto temp = std::vector<std::size_t>(m_indices.size());
-    for (auto i = 0zu; i < m_indices.size(); i++)
-      temp[i] = i;
-    std::shuffle(temp.begin(), temp.end(), engine);
+    auto shuffled_indices = std::vector<std::size_t>(m_indices.size());
+    for (auto j = 0zu; j < m_indices.size(); j++)
+      shuffled_indices[j] = j;
+    std::shuffle(shuffled_indices.begin(), shuffled_indices.end(), engine);
     auto loss = loss_context(m_verbosity);
-    for (const auto i : temp) {
+    for (const auto i : shuffled_indices) {
       auto interrupted = ctx.interrupted();
       if (interrupted)
         break;
       const auto &indices = m_indices.at(i);
       auto inferences = std::unordered_map<std::size_t, vector_type>();
       auto losses = std::unordered_map<std::size_t, element_type>();
-      auto positions = std::vector<std::size_t>();
-      for (auto i = 0zu; i < indices.size(); i++)
-        positions.push_back(i);
-      std::shuffle(positions.begin(), positions.end(), engine);
+      auto shuffled_positions = std::vector<std::size_t>();
+      for (auto j = 0zu; j < indices.size(); j++)
+        shuffled_positions.push_back(j);
+      std::shuffle(shuffled_positions.begin(), shuffled_positions.end(), engine);
       auto skip = skip_visitor(indices, m_width);
       auto visit = visitor(indices, m_width);
-      for (const auto pos : positions) {
+      for (const auto pos : shuffled_positions) {
         interrupted = ctx.interrupted();
         if (interrupted)
           break;
@@ -146,14 +146,14 @@ namespace cbow {
           explain(args);
         }
 #else
-        for (auto i = 0zu; i < indices.size(); i++) {
+        for (auto j = 0zu; j < indices.size(); j++) {
           auto args = explain_args{
             .corpus = *model.corpus,
             .epoch = epoch,
             .indices = indices,
-            .loss = losses.at(i),
-            .pos = i,
-            .probability = inferences.find(i)->second,
+            .loss = losses.at(j),
+            .pos = j,
+            .probability = inferences.find(j)->second,
             .visit = visit,
           };
           explain(args);
