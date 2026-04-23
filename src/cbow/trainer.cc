@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <iostream>
-#include <unordered_map>
 
 #include "cbow/loss.hh"
 #include "cbow/visitor.hh"
@@ -82,21 +81,26 @@ namespace cbow {
   }
 
   loss_statistics trainer::train(std::size_t epoch, const model &model, std::mt19937_64 &engine, signal &ctx) const {
+    auto max_length = 0zu;
     auto shuffled_indices = std::vector<std::size_t>(m_indices.size());
-    for (auto j = 0zu; j < m_indices.size(); j++)
+    for (auto j = 0zu; j < m_indices.size(); j++) {
       shuffled_indices[j] = j;
+      const auto size = m_indices[j].size();
+      if (max_length < size)
+        max_length = size;
+    }
     std::shuffle(shuffled_indices.begin(), shuffled_indices.end(), engine);
+    auto inferences = std::vector<vector_type>(max_length);
+    auto losses = std::vector<element_type>(max_length);
     auto loss = loss_context(m_verbosity);
     for (const auto i : shuffled_indices) {
       auto interrupted = ctx.interrupted();
       if (interrupted)
         break;
       const auto &indices = m_indices.at(i);
-      auto inferences = std::unordered_map<std::size_t, vector_type>();
-      auto losses = std::unordered_map<std::size_t, element_type>();
-      auto shuffled_positions = std::vector<std::size_t>();
+      auto shuffled_positions = std::vector<std::size_t>(indices.size());
       for (auto j = 0zu; j < indices.size(); j++)
-        shuffled_positions.push_back(j);
+        shuffled_positions[j] = j;
       std::shuffle(shuffled_positions.begin(), shuffled_positions.end(), engine);
       auto skip = skip_visitor(indices, m_width);
       auto visit = visitor(indices, m_width);
@@ -111,7 +115,7 @@ namespace cbow {
 
         // remember the probability in order to explain them later if necessary
         if (m_verbosity & 16)
-          inferences.emplace(pos, inference->probability);
+          inferences[pos] = inference->probability;
 
         // calculate cross entropy loss and update probability
         auto &prob = inference->probability[index];
@@ -119,7 +123,7 @@ namespace cbow {
         prob -= 1;
 
         // accumulate loss
-        losses.emplace(pos, cross_entropy_loss);
+        losses[pos] = cross_entropy_loss;
         loss.add(cross_entropy_loss);
 
         // update matrices
@@ -138,7 +142,7 @@ namespace cbow {
             .corpus = *model.corpus,
             .epoch = epoch,
             .indices = indices,
-            .loss = losses.at(pos),
+            .loss = losses[pos],
             .pos = pos,
             .probability = prob,
             .visit = visit,
@@ -151,9 +155,9 @@ namespace cbow {
             .corpus = *model.corpus,
             .epoch = epoch,
             .indices = indices,
-            .loss = losses.at(j),
+            .loss = losses[j],
             .pos = j,
-            .probability = inferences.find(j)->second,
+            .probability = inferences[j],
             .visit = visit,
           };
           explain(args);
