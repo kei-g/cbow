@@ -150,22 +150,6 @@ public:
   }
 
   /**
-   * @brief Updates weights using the inference results (probability and hidden state).
-   * Used for the output matrix backpropagation.
-   *
-   * @param eta Learning rate.
-   * @param inference Inference results.
-   */
-  void update(auto eta, const auto &inference) {
-    auto c = 0zu;
-    for (auto i = 0zu; i < this->rows; i++) {
-      const auto coeff = eta * inference.probability.at(i);
-      for (auto j = 0zu; j < this->columns; j++)
-        elements[c++] -= coeff * inference.hidden.at(j);
-    }
-  }
-
-  /**
    * @brief Updates weights by propagating error gradients from the output layer to the embedding matrix.
    *
    * @param eta Learning rate.
@@ -174,7 +158,7 @@ public:
    * @param visit Callback function to access embedding matrix indices.
    * @param width Window size.
    */
-  void update(auto eta, const auto &hidden_gradient, const auto pos, const auto &visit, const auto width) {
+  void update_embedding(auto eta, const auto &hidden_gradient, const auto pos, const auto &visit, const auto width) {
     const auto coeff = eta / (width * 2);
     for (auto i = 0zu, offset = 0zu; i < rows; i++, offset += columns) {
       const auto value = coeff * hidden_gradient.at(i);
@@ -188,6 +172,22 @@ public:
 #else  /* USE_SPAN */
       visit(pos, [this, offset, value](const auto i) { elements[offset + i] -= value; });
 #endif /* USE_SPAN */
+    }
+  }
+
+  /**
+   * @brief Updates weights using the inference results (probability and hidden state).
+   * Used for the output matrix backpropagation.
+   *
+   * @param eta Learning rate.
+   * @param inference Inference results.
+   */
+  void update_output(auto eta, const auto &inference) {
+    auto c = 0zu;
+    for (auto i = 0zu; i < this->rows; i++) {
+      const auto coeff = eta * inference.probability.at(i);
+      for (auto j = 0zu; j < this->columns; j++)
+        elements[c++] -= coeff * inference.hidden.at(j);
     }
   }
 };

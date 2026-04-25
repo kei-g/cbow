@@ -131,8 +131,8 @@ namespace cbow {
 
         // update matrices
         auto hidden_gradient = m_model.out_matrix->multiply_transpose(inference->probability);
-        m_model.in_matrix->update(m_eta, hidden_gradient, pos, visit, m_width);
-        m_model.out_matrix->update(m_eta, *inference);
+        m_model.in_matrix->update_embedding(m_eta, hidden_gradient, pos, visit, m_width);
+        m_model.out_matrix->update_output(m_eta, *inference);
       }
       if (interrupted)
         break;
