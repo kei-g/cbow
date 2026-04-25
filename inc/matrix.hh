@@ -13,6 +13,15 @@
 template <std::floating_point T>
 struct matrix_row;
 
+/**
+ * @brief A matrix implementation optimized for neural network weights.
+ *
+ * This class stores matrix elements in a flat std::vector for cache efficiency.
+ * It provides specialized methods for the CBOW architecture,
+ * including matrix-vector products for the forward pass and custom update rules for stochastic gradient descent.
+ *
+ * @tparam T Floating-point type (float, double) for calculations.
+ */
 template <std::floating_point T>
 struct matrix {
   friend std::ostream &operator<<(std::ostream &os, const matrix<T> &mat);
@@ -30,6 +39,14 @@ public:
   matrix(const matrix<T> &) = delete;
   matrix(matrix<T> &&) = delete;
 
+  /**
+   * @brief Constructs a matrix with elements initialized from a normal distribution with mean 0 and stddev 1/sqrt(N)
+   * (Xavier-like initialization).
+   *
+   * @param columns Number of columns.
+   * @param rows Number of rows.
+   * @param engine Random number generator.
+   */
   matrix(const std::size_t columns, const std::size_t rows, std::mt19937_64 &engine)
     : elements(columns * rows)
     , columns(columns)
@@ -44,12 +61,24 @@ public:
     }
   }
 
+  /**
+   * @brief Constructs a matrix by copying elements from the provided vector.
+   *
+   * @param columns Number of columns.
+   * @param rows Number of rows.
+   * @param elements Vector of elements.
+   */
   matrix(const std::size_t columns, const std::size_t rows, const std::vector<T> &elements)
     : elements(elements)
     , columns(columns)
     , rows(rows) {
   }
 
+  /**
+   * @brief Constructs a transposed matrix from the specified source matrix.
+   *
+   * @param source Source matrix.
+   */
   matrix(const matrix<T> *source)
     : elements(source->columns * source->rows)
     , columns(source->rows)
@@ -71,6 +100,13 @@ public:
   }
 #endif /* USE_SPAN */
 
+  /**
+   * @brief Performs matrix-vector multiplication,
+   * typically used to compute output layer scores from the hidden layer.
+   *
+   * @param vec Vector of values.
+   * @return Result of matrix-vector multiplication.
+   */
   auto operator*(const std::vector<T> &vec) const {
     auto result = std::vector<T>(rows);
     for (auto i = 0zu, j = 0zu; i < rows; i++) {
@@ -86,6 +122,13 @@ public:
     dest = std::make_unique<matrix<T>>(columns, rows, elements);
   }
 
+  /**
+   * @brief Computes a weighted sum of matrix rows,
+   * used for backpropagating errors to the embedding layer.
+   *
+   * @param vec Vector of values.
+   * @return Weighted sum of matrix rows.
+   */
   auto hadamard(const std::vector<T> &vec) const {
     auto result = std::vector<T>(columns);
     for (auto c = 0zu, i = 0zu; i < rows; i++) {
@@ -106,6 +149,13 @@ public:
     return std::make_unique<matrix<T>>(this);
   }
 
+  /**
+   * @brief Updates weights using the inference results (probability and hidden state).
+   * Used for the output matrix backpropagation.
+   *
+   * @param eta Learning rate.
+   * @param inference Inference results.
+   */
   void update(auto eta, const auto &inference) {
     auto c = 0zu;
     for (auto i = 0zu; i < this->rows; i++) {
@@ -115,6 +165,15 @@ public:
     }
   }
 
+  /**
+   * @brief Updates weights by propagating error gradients from the output layer to the embedding matrix.
+   *
+   * @param eta Learning rate.
+   * @param hadamard Weighted error gradient.
+   * @param pos Position index.
+   * @param visit Callback function to access embedding matrix indices.
+   * @param width Window size.
+   */
   void update(auto eta, const auto &hadamard, const auto pos, const auto &visit, const auto width) {
     const auto coeff = eta / (width * 2);
     for (auto i = 0zu, offset = 0zu; i < rows; i++, offset += columns) {

@@ -9,6 +9,11 @@ concept TextAcceptable = requires(T &target, const std::string &word) { target(w
 
 bool is_ucs4_space(uint32_t code);
 
+/**
+ * @brief A UTF-8 aware tokenizer that extracts words and recognizes special tokens like "<|endoftext|>"
+ *
+ * @tparam T The type of the receiver that accepts extracted words.
+ */
 template <TextAcceptable T>
 struct tokenizer {
 private:
@@ -41,6 +46,13 @@ public:
     : m_receiver(receiver) {
   }
 
+  /**
+   * @brief Processes a single character and its Unicode code point,
+   * accumulating characters into words and notifying the receiver.
+   *
+   * @param u8char The UTF-8 encoded character.
+   * @param code The Unicode code point.
+   */
   void operator()(const char *u8char, uint32_t code) {
     if (std::isalnum(*u8char) || is_in_progress_for_endoftext(*u8char))
       m_text += *u8char;
