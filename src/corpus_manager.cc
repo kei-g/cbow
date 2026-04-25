@@ -140,11 +140,12 @@ cbow::trainer corpus_manager::populate(cbow::model *model, std::mt19937_64 &engi
 void corpus_manager::load(int fd) {
   auto file = file_descriptor(fd);
   auto reader = utf8::reader();
-  auto receiver = [this](const string &word) {
+  auto lower = string();
+  auto receiver = [this, &lower](const string &word) {
     if (m_options.case_sensitive)
       accept(word);
     else {
-      auto lower = string();
+      lower.clear();
       transform(word.begin(), word.end(), back_inserter(lower), [](const auto c) { return std::tolower(c); });
       accept(lower);
     }

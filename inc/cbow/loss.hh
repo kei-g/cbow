@@ -9,13 +9,13 @@ namespace cbow {
 
   struct loss_context {
   private:
-    std::vector<element_type> m_list;
+    vector_type m_list;
     long double m_total;
     const int m_verbosity;
 
   public:
     loss_context() = delete;
-    loss_context(int verbosity);
+    loss_context(int verbosity, std::size_t expected_size = 0);
 
     void add(element_type error);
 

@@ -22,6 +22,7 @@ namespace cbow {
     const long double m_eta;
     const std::vector<std::deque<std::size_t>> m_indices;
     const model &m_model;
+    std::size_t m_total_tokens;
     const int m_verbosity;
     const unsigned long m_width;
 
@@ -36,7 +37,7 @@ namespace cbow {
     };
     void explain(const explain_args &args) const;
 
-    inference_pointer infer(std::size_t pos, const visitor &visit) const;
+    void infer(std::size_t pos, const visitor &visit, vector_type &hidden, vector_type &probability) const;
 
     /**
      * Constructor

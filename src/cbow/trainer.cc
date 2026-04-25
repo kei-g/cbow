@@ -16,8 +16,11 @@ namespace cbow {
     , m_eta(options.eta)
     , m_indices(std::move_iterator(indices.begin()), std::move_iterator(indices.end()))
     , m_model(model)
+    , m_total_tokens(0)
     , m_verbosity(options.verbosity)
     , m_width(options.width) {
+    for (const auto &sentence : m_indices)
+      m_total_tokens += sentence.size();
   }
 
   bool trainer::doesDrawHistogram() const {
@@ -66,9 +69,8 @@ namespace cbow {
     std::cerr << std::format("   (\x1b[32m{}\x1b[m: \x1b[33m{:.4f}\x1b[m%) 損失: {}", word, prob, loss) << std::endl;
   }
 
-  inference_pointer trainer::infer(std::size_t pos, const visitor &visit) const {
+  void trainer::infer(std::size_t pos, const visitor &visit, vector_type &hidden, vector_type &probability) const {
     // input layer
-    auto hidden = vector_type(m_dimensions);
     for (auto i = 0ul; i < m_dimensions; i++) {
       const auto row = m_model.in_matrix->row(i);
       auto value = static_cast<long double>(0);
@@ -77,15 +79,17 @@ namespace cbow {
     }
 
     // output layer
-    auto probability = *m_model.out_matrix * hidden;
+    m_model.out_matrix->multiply(hidden, probability);
     softmax(probability);
-
-    return std::make_unique<inference_type>(std::move(hidden), std::move(probability));
   }
 
   loss_statistics trainer::train(std::size_t epoch, signal &ctx) const {
     auto max_length = 0zu;
-    auto shuffled_indices = std::vector<std::size_t>(m_indices.size());
+    auto hidden = vector_type(m_dimensions);
+    auto hidden_gradient = vector_type(m_dimensions);
+    auto loss = loss_context(m_verbosity, m_total_tokens);
+    auto probability = vector_type(m_model.out_matrix->rows);
+    auto shuffled_indices = text_positions(m_indices.size());
     for (auto j = 0zu; j < m_indices.size(); j++) {
       shuffled_indices[j] = j;
       const auto size = m_indices[j].size();
@@ -94,34 +98,34 @@ namespace cbow {
     }
     std::shuffle(shuffled_indices.begin(), shuffled_indices.end(), m_engine);
     auto inferences = std::vector<vector_type>(max_length);
-    auto losses = std::vector<element_type>(max_length);
-    auto loss = loss_context(m_verbosity);
+    auto losses = vector_type(max_length);
+    auto shuffled_positions = text_positions(max_length);
     for (const auto i : shuffled_indices) {
       auto interrupted = ctx.interrupted();
       if (interrupted)
         break;
       const auto &indices = m_indices.at(i);
-      auto shuffled_positions = std::vector<std::size_t>(indices.size());
       for (auto j = 0zu; j < indices.size(); j++)
         shuffled_positions[j] = j;
-      std::shuffle(shuffled_positions.begin(), shuffled_positions.end(), m_engine);
+      std::shuffle(shuffled_positions.begin(), shuffled_positions.begin() + indices.size(), m_engine);
       auto skip = skip_visitor(indices, m_width);
       auto visit = visitor(indices, m_width);
-      for (const auto pos : shuffled_positions) {
+      for (auto j = 0zu; j < indices.size(); j++) {
+        const auto pos = shuffled_positions[j];
         interrupted = ctx.interrupted();
         if (interrupted)
           break;
         const auto index = indices.at(pos);
 
         // infer what word is appropriate at `pos`
-        auto inference = infer(pos, skip);
+        infer(pos, skip, hidden, probability);
 
         // remember the probability in order to explain them later if necessary
         if (m_verbosity & 16)
-          inferences[pos] = inference->probability;
+          inferences[pos] = probability;
 
         // calculate cross entropy loss and update probability
-        auto &prob = inference->probability[index];
+        auto &prob = probability[index];
         const auto cross_entropy_loss = -std::log(prob);
         prob -= 1;
 
@@ -130,9 +134,9 @@ namespace cbow {
         loss.add(cross_entropy_loss);
 
         // update matrices
-        auto hidden_gradient = m_model.out_matrix->multiply_transpose(inference->probability);
+        m_model.out_matrix->multiply_transpose(probability, hidden_gradient);
         m_model.in_matrix->update_embedding(m_eta, hidden_gradient, pos, visit, m_width);
-        m_model.out_matrix->update_output(m_eta, *inference);
+        m_model.out_matrix->update_output(m_eta, hidden, probability);
       }
       if (interrupted)
         break;

@@ -100,43 +100,41 @@ public:
   }
 #endif /* USE_SPAN */
 
+  void copy_to(std::unique_ptr<matrix<T>> &dest) const {
+    if (dest)
+      dest->elements = elements;
+    else
+      dest = std::make_unique<matrix<T>>(columns, rows, elements);
+  }
+
   /**
-   * @brief Performs matrix-vector multiplication,
-   * typically used to compute output layer scores from the hidden layer.
+   * @brief Performs matrix-vector multiplication into a pre-allocated vector.
    *
-   * @param vec Vector of values.
-   * @return Result of matrix-vector multiplication.
+   * @param vec Input vector.
+   * @param result Output vector (must be pre-allocated to size `rows`).
    */
-  auto operator*(const std::vector<T> &vec) const {
-    auto result = std::vector<T>(rows);
+  void multiply(const std::vector<T> &vec, std::vector<T> &result) const {
     for (auto i = 0zu, j = 0zu; i < rows; i++) {
       auto work = static_cast<T>(0);
       for (const auto value : vec)
         work += elements[j++] * value;
       result[i] = work;
     }
-    return result;
-  }
-
-  void copy_to(std::unique_ptr<matrix<T>> &dest) const {
-    dest = std::make_unique<matrix<T>>(columns, rows, elements);
   }
 
   /**
-   * @brief Computes a weighted sum of matrix rows,
-   * used for backpropagating errors to the embedding layer.
+   * @brief Computes a weighted sum of matrix rows into a pre-allocated vector.
    *
-   * @param vec Vector of values.
-   * @return Weighted sum of matrix rows.
+   * @param vec Input vector.
+   * @param result Output vector (must be pre-allocated to size `columns`).
    */
-  auto multiply_transpose(const std::vector<T> &vec) const {
-    auto result = std::vector<T>(columns);
+  void multiply_transpose(const std::vector<T> &vec, std::vector<T> &result) const {
+    std::fill(result.begin(), result.end(), 0);
     for (auto c = 0zu, i = 0zu; i < rows; i++) {
       const auto value = vec.at(i);
       for (auto j = 0zu; j < columns; j++)
         result[j] += elements[c++] * value;
     }
-    return result;
   }
 
   auto row(const auto row) const {
@@ -182,12 +180,12 @@ public:
    * @param eta Learning rate.
    * @param inference Inference results.
    */
-  void update_output(auto eta, const auto &inference) {
+  void update_output(auto eta, const std::vector<T> &hidden, const std::vector<T> &probability) {
     auto c = 0zu;
     for (auto i = 0zu; i < this->rows; i++) {
-      const auto coeff = eta * inference.probability.at(i);
+      const auto coeff = eta * probability.at(i);
       for (auto j = 0zu; j < this->columns; j++)
-        elements[c++] -= coeff * inference.hidden.at(j);
+        elements[c++] -= coeff * hidden.at(j);
     }
   }
 };

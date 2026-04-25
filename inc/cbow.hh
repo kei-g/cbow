@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <deque>
-#include <memory>
 #include <vector>
 
 #include "matrix.hh"
@@ -20,13 +19,4 @@ namespace cbow {
   typedef std::size_t text_position_type;
   typedef std::vector<text_position_type> text_positions;
   typedef std::size_t vocabulary_position_type;
-
-  struct inference_type {
-    vector_type hidden;
-    vector_type probability;
-
-    inference_type(vector_type &&hidden, vector_type &&probability);
-  };
-
-  typedef std::unique_ptr<inference_type> inference_pointer;
 }

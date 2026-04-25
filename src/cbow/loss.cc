@@ -5,9 +5,11 @@
 #include "sixel.hh"
 
 namespace cbow {
-  loss_context::loss_context(int verbosity)
+  loss_context::loss_context(int verbosity, std::size_t expected_size)
     : m_total(0)
     , m_verbosity(verbosity) {
+    if (0 < expected_size)
+      m_list.reserve(expected_size);
   }
 
   void loss_context::add(element_type error) {
