@@ -25,24 +25,24 @@ namespace cbow {
   }
 
   void trainer::explain(const explain_args &args) const {
-    const auto &corpus = args.corpus;
     const auto epoch = args.epoch;
     const auto &indices = args.indices;
     const auto loss = args.loss;
     const auto pos = args.pos;
     const auto &probability = args.probability;
+    const auto &vocabulary = args.vocabulary;
 
     // header
     std::cerr << std::format("{}/{}/[{}] {{", pos + 1, indices.size(), epoch);
 
     // sentence with a blank at `pos`
-    args.visit(pos, [&corpus, pos](const auto i, const auto j) {
+    args.visit(pos, [pos, &vocabulary](const auto i, const auto j) {
       if (j < static_cast<std::ptrdiff_t>(pos))
-        std::cerr << std::format("{} ", i == 0 ? "\x1b[1m<|B|>\x1b[m" : corpus.at(i));
+        std::cerr << std::format("{} ", i == 0 ? "\x1b[1m<|B|>\x1b[m" : vocabulary.at(i));
       else if (j == static_cast<std::ptrdiff_t>(pos))
         std::cerr << "\x1b[4m   \x1b[m";
       else
-        std::cerr << std::format(" {}", i == 1 ? "\x1b[1m<|E|>\x1b[m" : corpus.at(i));
+        std::cerr << std::format(" {}", i == 1 ? "\x1b[1m<|E|>\x1b[m" : vocabulary.at(i));
     });
     std::cerr << '}' << std::endl;
 
@@ -53,7 +53,7 @@ namespace cbow {
     for (const auto &[prob, idx] : topmost(3, probability, &variance)) {
       const auto correct = idx == index;
       const auto color = colors[static_cast<std::size_t>(correct)];
-      const auto &word = corpus.at(idx);
+      const auto &word = vocabulary.at(idx);
       std::cerr << std::format("    \x1b[{}m{}\x1b[m: {:.4f}%", color, word, prob * 100) << std::endl;
     }
 
@@ -61,8 +61,8 @@ namespace cbow {
     std::cerr << std::format("      {{分散: {:.9f}, 標準偏差: {:.9f}}}", variance, std::sqrt(variance)) << std::endl;
 
     // correct label and its current probability
-    const auto &word = corpus.at(index);
     const auto prob = probability.at(index) * 100;
+    const auto &word = vocabulary.at(index);
     std::cerr << std::format("   (\x1b[32m{}\x1b[m: \x1b[33m{:.4f}\x1b[m%) 損失: {}", word, prob, loss) << std::endl;
   }
 
@@ -130,8 +130,8 @@ namespace cbow {
         loss.add(cross_entropy_loss);
 
         // update matrices
-        auto hadamard = m_model.out_matrix->hadamard(inference->probability);
-        m_model.in_matrix->update(m_eta, hadamard, pos, visit, m_width);
+        auto hidden_gradient = m_model.out_matrix->multiply_transpose(inference->probability);
+        m_model.in_matrix->update(m_eta, hidden_gradient, pos, visit, m_width);
         m_model.out_matrix->update(m_eta, *inference);
       }
       if (interrupted)
@@ -142,26 +142,26 @@ namespace cbow {
 #if 0 // change to 1 if you don't mind the order of inference
         for (const auto [pos, prob] : inferences) {
           auto args = explain_args{
-            .corpus = *m_model.corpus,
             .epoch = epoch,
             .indices = indices,
             .loss = losses[pos],
             .pos = pos,
             .probability = prob,
             .visit = visit,
+            .vocabulary = *m_model.vocabulary,
           };
           explain(args);
         }
 #else
         for (auto j = 0zu; j < indices.size(); j++) {
           auto args = explain_args{
-            .corpus = *m_model.corpus,
             .epoch = epoch,
             .indices = indices,
             .loss = losses[j],
             .pos = j,
             .probability = inferences[j],
             .visit = visit,
+            .vocabulary = *m_model.vocabulary,
           };
           explain(args);
         }

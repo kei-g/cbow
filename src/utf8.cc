@@ -20,7 +20,7 @@ static bool enough(const unsigned char buf[4], const size_t pos) {
 }
 
 namespace utf8 {
-  void reader::accept(file_descriptor &fd, const_functor_ref functor) const {
+  void reader::process(file_descriptor &fd, const_functor_ref functor) const {
     unsigned char buf[4];
     for (auto pos = 0zu;;) {
       auto rlen = fd.read(buf + pos, 1);

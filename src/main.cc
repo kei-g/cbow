@@ -49,11 +49,11 @@ int main(int argc, char *argv[]) {
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "text_reader.hh"
+#include "corpus_manager.hh"
 
 static cbow::trainer load(int argc, char *argv[], std::mt19937_64 &engine, cbow::model *model) {
   const auto opts = cbow::options::parse(argc, argv);
-  auto tr = ::text_reader(opts);
+  auto tr = ::corpus_manager(opts);
   extern int optind;
   if (optind < argc) {
     auto fd = open(argv[optind], O_RDONLY);
@@ -64,7 +64,7 @@ static cbow::trainer load(int argc, char *argv[], std::mt19937_64 &engine, cbow:
   else
     tr.load(0);
 
-  // describe corpus and words if necessary
+  // describe statistics of corpus and vocabulary
   tr.describe_to(std::cerr);
 
   // populate a CBoW model and trainer

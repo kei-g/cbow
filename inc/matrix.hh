@@ -129,7 +129,7 @@ public:
    * @param vec Vector of values.
    * @return Weighted sum of matrix rows.
    */
-  auto hadamard(const std::vector<T> &vec) const {
+  auto multiply_transpose(const std::vector<T> &vec) const {
     auto result = std::vector<T>(columns);
     for (auto c = 0zu, i = 0zu; i < rows; i++) {
       const auto value = vec.at(i);
@@ -169,15 +169,15 @@ public:
    * @brief Updates weights by propagating error gradients from the output layer to the embedding matrix.
    *
    * @param eta Learning rate.
-   * @param hadamard Weighted error gradient.
+   * @param hidden_gradient Weighted error gradient.
    * @param pos Position index.
    * @param visit Callback function to access embedding matrix indices.
    * @param width Window size.
    */
-  void update(auto eta, const auto &hadamard, const auto pos, const auto &visit, const auto width) {
+  void update(auto eta, const auto &hidden_gradient, const auto pos, const auto &visit, const auto width) {
     const auto coeff = eta / (width * 2);
     for (auto i = 0zu, offset = 0zu; i < rows; i++, offset += columns) {
-      const auto value = coeff * hadamard.at(i);
+      const auto value = coeff * hidden_gradient.at(i);
 #ifdef USE_SPAN
       auto row = (*this)[i];
       for (auto j = pos - width; j + 1 < pos; j++)

@@ -58,5 +58,5 @@ long file_descriptor::read(void *dest, std::size_t len) {
 }
 
 void file_descriptor::visit(const utf8::reader &u8r, const_functor_ref functor) {
-  u8r.accept(*this, functor);
+  u8r.process(*this, functor);
 }

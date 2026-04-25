@@ -1,6 +1,6 @@
 #include "tokenizer.hh"
 
-bool is_ucs4_space(uint32_t code) {
+bool is_utf32_space(uint32_t code) {
   switch (code) {
   case ' ':
   case '\n':

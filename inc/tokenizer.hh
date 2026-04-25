@@ -7,7 +7,7 @@
 template <typename T>
 concept TextAcceptable = requires(T &target, const std::string &word) { target(word); };
 
-bool is_ucs4_space(uint32_t code);
+bool is_utf32_space(uint32_t code);
 
 /**
  * @brief A UTF-8 aware tokenizer that extracts words and recognizes special tokens like "<|endoftext|>"
@@ -17,24 +17,25 @@ bool is_ucs4_space(uint32_t code);
 template <TextAcceptable T>
 struct tokenizer {
 private:
+  std::string m_current_token;
   T &m_receiver;
-  std::string m_text;
 
   bool is_in_progress_for_endoftext(const char u8char) const {
-    return (m_text.empty() && u8char == '<') || ((m_text == "<" || m_text == "<|endoftext") && u8char == '|');
+    return (m_current_token.empty() && u8char == '<') ||
+           ((m_current_token == "<" || m_current_token == "<|endoftext") && u8char == '|');
   }
 
-  void prune_incomplete_endoftext() {
-    if (m_text.starts_with('<')) {
+  void flush_partial_token() {
+    if (m_current_token.starts_with('<')) {
       m_receiver("<");
-      m_text = m_text.substr(1);
-      if (m_text.starts_with('|')) {
+      m_current_token = m_current_token.substr(1);
+      if (m_current_token.starts_with('|')) {
         m_receiver("|");
-        m_text = m_text.substr(1);
-        if (m_text.ends_with('|')) {
-          m_text.pop_back();
-          m_receiver(m_text);
-          m_text.erase();
+        m_current_token = m_current_token.substr(1);
+        if (m_current_token.ends_with('|')) {
+          m_current_token.pop_back();
+          m_receiver(m_current_token);
+          m_current_token.erase();
           m_receiver("|");
         }
       }
@@ -53,22 +54,22 @@ public:
    * @param u8char The UTF-8 encoded character.
    * @param code The Unicode code point.
    */
-  void operator()(const char *u8char, uint32_t code) {
-    if (std::isalnum(*u8char) || is_in_progress_for_endoftext(*u8char))
-      m_text += *u8char;
-    else if (m_text == "<|endoftext|" && *u8char == '>') {
-      m_text += *u8char;
-      m_receiver(m_text);
-      m_text.erase();
+  void operator()(const char *utf8_char, uint32_t code) {
+    if (std::isalnum(*utf8_char) || is_in_progress_for_endoftext(*utf8_char))
+      m_current_token += *utf8_char;
+    else if (m_current_token == "<|endoftext|" && *utf8_char == '>') {
+      m_current_token += *utf8_char;
+      m_receiver(m_current_token);
+      m_current_token.erase();
     }
     else {
-      prune_incomplete_endoftext();
-      if (!m_text.empty()) {
-        m_receiver(m_text);
-        m_text.erase();
+      flush_partial_token();
+      if (!m_current_token.empty()) {
+        m_receiver(m_current_token);
+        m_current_token.erase();
       }
-      if (!is_ucs4_space(code))
-        m_receiver(u8char);
+      if (!is_utf32_space(code))
+        m_receiver(utf8_char);
     }
   }
 };

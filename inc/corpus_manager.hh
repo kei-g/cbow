@@ -7,43 +7,43 @@
 #include "cbow/options.hh"
 #include "cbow/trainer.hh"
 
-struct text_reader {
+struct corpus_manager {
 private:
-  std::deque<std::string> m_corpus;
-  std::size_t m_count;
+  std::deque<std::deque<std::size_t>> m_corpus;
   std::deque<std::size_t> m_current_indices;
   std::deque<std::size_t> m_frequency;
-  std::deque<std::deque<std::size_t>> m_indices;
   const cbow::options &m_options;
   std::unordered_map<std::string, std::size_t> m_reverse_lookup_table;
+  std::size_t m_total_tokens;
+  std::deque<std::string> m_vocabulary;
 
   void accept(const std::string &word);
 
   /**
-   * Append an existing word
+   * Add token to corpus
    */
-  void append(const std::size_t index);
+  void add_token_to_corpus(const std::size_t index);
 
   /**
-   * Append a word newly appeared
+   * Register a newly appeared word
    */
-  void append(const std::string &word);
+  void register_word_and_append(const std::string &word);
 
   /**
-   * Describe frequency of words in corpus.
+   * Describe frequency of vocabulary
    */
-  void describe_frequency_of_words_to(std::ostream &dest) const;
+  void describe_frequency_of_vocabulary_to(std::ostream &dest) const;
 
 public:
-  text_reader() = delete;
+  corpus_manager() = delete;
 
   /**
    * Constructor
    */
-  text_reader(const cbow::options &options);
+  corpus_manager(const cbow::options &options);
 
   /**
-   * Describe corpus and words.
+   * Describe statistics of corpus and vocabulary.
    */
   void describe_to(std::ostream &dest) const;
 

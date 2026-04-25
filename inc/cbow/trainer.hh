@@ -2,7 +2,7 @@
 
 #include <deque>
 
-struct text_reader;
+struct corpus_manager;
 
 #include "cbow.hh"
 #include "cbow/describer.hh"
@@ -14,7 +14,7 @@ struct text_reader;
 
 namespace cbow {
   struct trainer {
-    friend struct ::text_reader;
+    friend struct ::corpus_manager;
 
   private:
     const unsigned long m_dimensions;
@@ -26,13 +26,13 @@ namespace cbow {
     const unsigned long m_width;
 
     struct explain_args {
-      const std::vector<std::string> &corpus;
       std::size_t epoch;
       const std::deque<std::size_t> &indices;
       element_type loss;
       text_position_type pos;
       const vector_type &probability;
       const visitor &visit;
+      const std::vector<std::string> &vocabulary;
     };
     void explain(const explain_args &args) const;
 
