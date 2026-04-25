@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
   auto best_loss = std::numeric_limits<long double>::infinity();
   auto context = signal();
   for (auto epoch = 0zu; !context.interrupted(); epoch++) {
-    const auto loss = trainer.train(epoch, model, engine, context);
+    const auto loss = trainer.train(epoch, context);
     if (trainer.doesDrawHistogram()) {
       std::cerr << "\x1b[4A";
       std::cerr << loss.hist << std::endl;

@@ -129,7 +129,7 @@ cbow::trainer text_reader::populate(cbow::model *model, std::mt19937_64 &engine)
                                                              std::move_iterator(m_corpus.end()));
   model->in_matrix = std::make_unique<cbow::matrix_type>(V, H, engine);
   model->out_matrix = std::make_unique<cbow::matrix_type>(H, V, engine);
-  return cbow::trainer(m_indices, m_options);
+  return cbow::trainer(engine, m_indices, *model, m_options);
 }
 
 #include "tokenizer.hh"

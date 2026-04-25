@@ -18,8 +18,10 @@ namespace cbow {
 
   private:
     const unsigned long m_dimensions;
+    std::mt19937_64 &m_engine;
     const long double m_eta;
     const std::vector<std::deque<std::size_t>> m_indices;
+    const model &m_model;
     const int m_verbosity;
     const unsigned long m_width;
 
@@ -34,12 +36,13 @@ namespace cbow {
     };
     void explain(const explain_args &args) const;
 
-    inference_pointer infer(std::size_t pos, const model &model, const visitor &visit) const;
+    inference_pointer infer(std::size_t pos, const visitor &visit) const;
 
     /**
      * Constructor
      */
-    trainer(std::deque<std::deque<std::size_t>> &indices, const options &options);
+    trainer(std::mt19937_64 &engine, std::deque<std::deque<std::size_t>> &indices, const model &model,
+            const options &options);
 
   public:
     trainer() = delete;
@@ -51,6 +54,6 @@ namespace cbow {
     /**
      * Train
      */
-    loss_statistics train(std::size_t epoch, const model &model, std::mt19937_64 &engine, signal &context) const;
+    loss_statistics train(std::size_t epoch, signal &context) const;
   };
 }

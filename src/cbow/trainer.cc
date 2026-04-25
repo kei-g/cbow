@@ -9,10 +9,13 @@
 #include "topmost.hh"
 
 namespace cbow {
-  trainer::trainer(std::deque<std::deque<std::size_t>> &indices, const options &options)
+  trainer::trainer(std::mt19937_64 &engine, std::deque<std::deque<std::size_t>> &indices, const model &model,
+                   const options &options)
     : m_dimensions(options.dimensions)
+    , m_engine(engine)
     , m_eta(options.eta)
     , m_indices(std::move_iterator(indices.begin()), std::move_iterator(indices.end()))
+    , m_model(model)
     , m_verbosity(options.verbosity)
     , m_width(options.width) {
   }
@@ -63,24 +66,24 @@ namespace cbow {
     std::cerr << std::format("   (\x1b[32m{}\x1b[m: \x1b[33m{:.4f}\x1b[m%) 損失: {}", word, prob, loss) << std::endl;
   }
 
-  inference_pointer trainer::infer(std::size_t pos, const model &model, const visitor &visit) const {
+  inference_pointer trainer::infer(std::size_t pos, const visitor &visit) const {
     // input layer
     auto hidden = vector_type(m_dimensions);
     for (auto i = 0ul; i < m_dimensions; i++) {
-      const auto row = model.in_matrix->row(i);
+      const auto row = m_model.in_matrix->row(i);
       auto value = static_cast<long double>(0);
       visit(pos, [&row, &value](const auto i) { value += row[i]; });
       hidden[i] = value / (m_width * 2);
     }
 
     // output layer
-    auto probability = *model.out_matrix * hidden;
+    auto probability = *m_model.out_matrix * hidden;
     softmax(probability);
 
     return std::make_unique<inference_type>(std::move(hidden), std::move(probability));
   }
 
-  loss_statistics trainer::train(std::size_t epoch, const model &model, std::mt19937_64 &engine, signal &ctx) const {
+  loss_statistics trainer::train(std::size_t epoch, signal &ctx) const {
     auto max_length = 0zu;
     auto shuffled_indices = std::vector<std::size_t>(m_indices.size());
     for (auto j = 0zu; j < m_indices.size(); j++) {
@@ -89,7 +92,7 @@ namespace cbow {
       if (max_length < size)
         max_length = size;
     }
-    std::shuffle(shuffled_indices.begin(), shuffled_indices.end(), engine);
+    std::shuffle(shuffled_indices.begin(), shuffled_indices.end(), m_engine);
     auto inferences = std::vector<vector_type>(max_length);
     auto losses = std::vector<element_type>(max_length);
     auto loss = loss_context(m_verbosity);
@@ -101,7 +104,7 @@ namespace cbow {
       auto shuffled_positions = std::vector<std::size_t>(indices.size());
       for (auto j = 0zu; j < indices.size(); j++)
         shuffled_positions[j] = j;
-      std::shuffle(shuffled_positions.begin(), shuffled_positions.end(), engine);
+      std::shuffle(shuffled_positions.begin(), shuffled_positions.end(), m_engine);
       auto skip = skip_visitor(indices, m_width);
       auto visit = visitor(indices, m_width);
       for (const auto pos : shuffled_positions) {
@@ -111,7 +114,7 @@ namespace cbow {
         const auto index = indices.at(pos);
 
         // infer what word is appropriate at `pos`
-        auto inference = infer(pos, model, skip);
+        auto inference = infer(pos, skip);
 
         // remember the probability in order to explain them later if necessary
         if (m_verbosity & 16)
@@ -127,9 +130,9 @@ namespace cbow {
         loss.add(cross_entropy_loss);
 
         // update matrices
-        auto hadamard = model.out_matrix->hadamard(inference->probability);
-        model.in_matrix->update(m_eta, hadamard, pos, visit, m_width);
-        model.out_matrix->update(m_eta, *inference);
+        auto hadamard = m_model.out_matrix->hadamard(inference->probability);
+        m_model.in_matrix->update(m_eta, hadamard, pos, visit, m_width);
+        m_model.out_matrix->update(m_eta, *inference);
       }
       if (interrupted)
         break;
@@ -139,7 +142,7 @@ namespace cbow {
 #if 0 // change to 1 if you don't mind the order of inference
         for (const auto [pos, prob] : inferences) {
           auto args = explain_args{
-            .corpus = *model.corpus,
+            .corpus = *m_model.corpus,
             .epoch = epoch,
             .indices = indices,
             .loss = losses[pos],
@@ -152,7 +155,7 @@ namespace cbow {
 #else
         for (auto j = 0zu; j < indices.size(); j++) {
           auto args = explain_args{
-            .corpus = *model.corpus,
+            .corpus = *m_model.corpus,
             .epoch = epoch,
             .indices = indices,
             .loss = losses[j],
