@@ -7,6 +7,7 @@ namespace cbow {
     bool case_sensitive;
     unsigned long dimensions;
     long double eta;
+    unsigned long min_count;
     int verbosity;
     unsigned long width;
 

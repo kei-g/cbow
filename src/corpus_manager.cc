@@ -29,14 +29,18 @@ static size_t zip_to(deque<pair<U, T>> *dest, const deque<T> &arg1, const deque<
 }
 
 corpus_manager::corpus_manager(const cbow::options &options)
-  : m_options(options)
+  : m_excluded_word_count(0zu)
+  , m_options(options)
   , m_total_tokens(0zu) {
+  m_frequency.push_back(0zu);
   m_frequency.push_back(0zu);
   m_frequency.push_back(0zu);
   m_reverse_lookup_table.insert(make_pair("<|beginoftext|>", 0zu));
   m_reverse_lookup_table.insert(make_pair("<|endoftext|>", 1zu));
+  m_reverse_lookup_table.insert(make_pair("<|unknown|>", 2zu));
   m_vocabulary.push_back("<|beginoftext|>");
   m_vocabulary.push_back("<|endoftext|>");
+  m_vocabulary.push_back("<|unknown|>");
 }
 
 void corpus_manager::accept(const string &word) {
@@ -119,7 +123,10 @@ void corpus_manager::describe_to(ostream &dest) const {
     describe_frequency_of_vocabulary_to(dest);
 
   if (o.verbosity & 1) {
-    dest << format("総単語数: {}語, 語彙: {}語", m_total_tokens, m_vocabulary.size() - 1) << endl;
+    dest << format("総単語数: {}語, 語彙: {}語", m_total_tokens, m_vocabulary.size() - 3);
+    if (0 < m_excluded_word_count)
+      dest << format(" (除外された低頻度語: {}語)", m_excluded_word_count);
+    dest << endl;
     dest << format("周囲{}単語を用いて{}次元のベクトルへ変換します", o.width, o.dimensions) << endl;
   }
 }
@@ -132,6 +139,46 @@ cbow::trainer corpus_manager::populate(cbow::model *model, std::mt19937_64 &engi
   model->vocabulary = std::make_unique<std::vector<std::string>>(std::move_iterator(m_vocabulary.begin()),
                                                                  std::move_iterator(m_vocabulary.end()));
   return cbow::trainer(engine, m_corpus, *model, m_options);
+}
+
+void corpus_manager::prune(std::size_t min_count) {
+  if (min_count <= 1)
+    return;
+
+  // Identify infrequent words
+  auto old_to_new = vector<size_t>(m_vocabulary.size(), 2zu);
+  old_to_new[0] = 0zu;
+  old_to_new[1] = 1zu;
+
+  auto new_vocabulary = deque<string>{"<|beginoftext|>", "<|endoftext|>", "<|unknown|>"};
+  auto new_frequency = deque<size_t>{m_frequency[0], m_frequency[1], 0zu};
+
+  for (auto i = 3zu; i < m_vocabulary.size(); i++) {
+    const auto freq = m_frequency.at(i);
+    if (min_count <= freq) {
+      old_to_new[i] = new_vocabulary.size();
+      new_vocabulary.push_back(m_vocabulary.at(i));
+      new_frequency.push_back(freq);
+    }
+    else {
+      if (m_options.verbosity & 8)
+        cerr << format("\x1b[31mExcluding word: {}\x1b[m (freq: {})", m_vocabulary.at(i), freq) << endl;
+      new_frequency[2] += freq;
+      m_excluded_word_count++;
+    }
+  }
+
+  // Update corpus indices
+  for (auto &sentence : m_corpus)
+    for (auto &index : sentence)
+      index = old_to_new.at(index);
+
+  // Update internal state
+  m_vocabulary = std::move(new_vocabulary);
+  m_frequency = std::move(new_frequency);
+  m_reverse_lookup_table.clear();
+  for (auto i = 0zu; i < m_vocabulary.size(); i++)
+    m_reverse_lookup_table.insert(make_pair(m_vocabulary.at(i), i));
 }
 
 #include "tokenizer.hh"

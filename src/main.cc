@@ -64,6 +64,9 @@ static cbow::trainer load(int argc, char *argv[], std::mt19937_64 &engine, cbow:
   else
     tr.load(0);
 
+  // exclude infrequent words from training
+  tr.prune(opts.min_count);
+
   // describe statistics of corpus and vocabulary
   tr.describe_to(std::cerr);
 

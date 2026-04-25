@@ -41,11 +41,15 @@ namespace cbow {
     // sentence with a blank at `pos`
     args.visit(pos, [pos, &vocabulary](const auto i, const auto j) {
       if (j < static_cast<std::ptrdiff_t>(pos))
-        std::cerr << std::format("{} ", i == 0 ? "\x1b[1m<|B|>\x1b[m" : vocabulary.at(i));
+        std::cerr << std::format("{} ", i == 0   ? "\x1b[1m<|B|>\x1b[m"
+                                        : i == 2 ? "\x1b[1m<|U|\x1b[m"
+                                                 : vocabulary.at(i));
       else if (j == static_cast<std::ptrdiff_t>(pos))
         std::cerr << "\x1b[4m   \x1b[m";
       else
-        std::cerr << std::format(" {}", i == 1 ? "\x1b[1m<|E|>\x1b[m" : vocabulary.at(i));
+        std::cerr << std::format(" {}", i == 1   ? "\x1b[1m<|E|>\x1b[m"
+                                        : i == 2 ? "\x1b[1m<|U|>\x1b[m"
+                                                 : vocabulary.at(i));
     });
     std::cerr << '}' << std::endl;
 
